@@ -11,14 +11,61 @@
       .leaflet-container {
         background-color: #c5e8ff;
       }
+      .legend {
+        position: absolute;
+        top: 410px;
+        left: 10px;
+        z-index: 1000;
+        background-color: white;
+        padding: 10px;
+        border-radius: 5px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+      .legend-item span {
+        display: inline-block;
+        width: 20px;
+        height: 10px;
+        margin-right: 5px;
+      }
     </style>
   </head>
 
   <body>
     <div id="map" style="width: 600px; height: 400px"></div>
+    <div id="chart" style="width: 300px; height: 400px"></div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <span style="background-color: #ff7f7f"></span> 0-999
+      </div>
+      <div class="legend-item">
+        <span style="background-color: #ff4c4c"></span> 1,000-9,999
+      </div>
+      <div class="legend-item">
+        <span style="background-color: #ff1f1f"></span> 10,000-99,999
+      </div>
+      <div class="legend-item">
+        <span style="background-color: #ff0000"></span> 100,000-199,999
+      </div>
+      <div class="legend-item">
+        <span style="background-color: #d40000"></span> 200,000-299,999
+      </div>
+      <div class="legend-item">
+        <span style="background-color: #a10000"></span> 300,000-999,999
+      </div>
+      <div class="legend-item">
+        <span style="background-color: #6e0000"></span> 1,000,000 and above
+      </div>
+    </div>
 
     <script src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
     <script src="http://cdn.leafletjs.com/leaflet-0.7.1/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script>
       var myGeoJSONPath = "custom.geo1.json";
       var myCustomStyle = {
@@ -26,38 +73,196 @@
         color: "#000",
         weight: 1,
         fill: true,
-        fillColor: "#fff",
         fillOpacity: 1,
       };
-      $.getJSON(myGeoJSONPath, function (data) {
-        var map = L.map("map").setView([54.526, 15.2551], 4);
 
-        // Load deaths data from JSON file
-        $.getJSON("covid_deaths.json", function (deathsData) {
+      var map = L.map("map").setView([54.526, 15.2551], 4); // Declare map variable here
+
+      //Load deaths data from JSON file
+      $.getJSON("covid_deaths.json", function (deathsData) {
+        $.getJSON(myGeoJSONPath, function (data) {
           L.geoJson(data, {
             clickable: true,
-            style: myCustomStyle,
+            style: function (feature) {
+              var countryData = deathsData.find(function (country) {
+                return country.Country === feature.properties.name;
+              });
+              if (
+                countryData &&
+                typeof countryData["Total Deaths"] === "string"
+              ) {
+                var deaths = parseInt(
+                  countryData["Total Deaths"].replace(/,/g, ""),
+                  10
+                );
+                if (!isNaN(deaths)) {
+                  var color = getColor(deaths);
+                  return {
+                    stroke: true,
+                    color: "#000",
+                    weight: 1,
+                    fill: true,
+                    fillColor: color,
+                    fillOpacity: 1,
+                  };
+                }
+              }
+              return myCustomStyle;
+            },
             onEachFeature: function (feature, layer) {
               layer.on("click", function (e) {
-                // Find the country in the deaths data
                 var countryData = deathsData.find(function (country) {
                   return country.Country === feature.properties.name;
                 });
-                if (countryData) {
-                  // Show the number of deaths in a popup
-                  var deaths = countryData["Total Deaths"];
+
+                if (countryData && countryData["Total Deaths"]) {
+                  var deaths = parseInt(
+                    countryData["Total Deaths"].replace(/,/g, ""),
+                    10
+                  );
+                  console.log(deaths);
                   L.popup()
                     .setLatLng(e.latlng)
                     .setContent(
-                      feature.properties.name + "<br>" + "Deaths: " + deaths
+                      feature.properties.name +
+                        "<br>" +
+                        "Deaths: " +
+                        deaths.toLocaleString()
                     )
                     .openOn(map);
                 }
               });
             },
           }).addTo(map);
+          var highlightedLayer = null;
+          // Add an event listener to each legend item
+          document.querySelectorAll(".legend-item").forEach(function (item) {
+            item.addEventListener("click", function () {
+              var legendColor =
+                this.querySelector("span").style.backgroundColor;
+
+              // Get the death count range based on the legend color
+              var deathCountRange;
+              switch (legendColor) {
+                case "rgb(255, 127, 127)": // 0-999
+                  deathCountRange = { min: 0, max: 999 };
+                  break;
+                case "rgb(255, 76, 76)": // 1,000-9,999
+                  deathCountRange = { min: 1000, max: 9999 };
+                  break;
+                case "rgb(255, 31, 31)": // 10,000-99,999
+                  deathCountRange = { min: 10000, max: 99999 };
+                  break;
+                case "rgb(255, 0, 0)": // 10,000-99,999
+                  deathCountRange = { min: 100000, max: 199999 };
+                  break;
+                case "rgb(212, 0, 0)": // 10,000-99,999
+                  deathCountRange = { min: 200000, max: 299999 };
+                  break;
+                case "rgb(161, 0, 0)": // 10,000-99,999
+                  deathCountRange = { min: 300000, max: 999999 };
+                  break;
+                case "rgb(110, 0, 0)": // 10,000-99,999
+                  deathCountRange = { min: 1000000, max: 9999999 };
+                  break;
+                default:
+                  deathCountRange = null; // Invalid legend color
+              }
+
+              // Filter geoJSON data based on the death count range
+              var filteredFeatures = data.features.filter(function (feature) {
+                var countryData = deathsData.find(function (country) {
+                  return country.Country === feature.properties.name;
+                });
+                if (
+                  countryData &&
+                  typeof countryData["Total Deaths"] === "string" &&
+                  deathCountRange
+                ) {
+                  var deaths = parseInt(
+                    countryData["Total Deaths"].replace(/,/g, ""),
+                    10
+                  );
+                  return (
+                    deaths >= deathCountRange.min &&
+                    deaths <= deathCountRange.max
+                  );
+                }
+                return false;
+              });
+              if (highlightedLayer) {
+                map.removeLayer(highlightedLayer);
+              }
+              // Apply a new style to the filtered features to highlight them on the map
+              highlightedLayer = L.geoJson(filteredFeatures, {
+                style: function () {
+                  return {
+                    stroke: true,
+                    color: "#000",
+                    weight: 2,
+                    fill: true,
+                    fillColor: legendColor,
+                    fillOpacity: 0.1,
+                  };
+                },
+                onEachFeature: function (feature, layer) {
+                  var countryName = feature.properties.name;
+                  var countryNames = [];
+
+                  // Iterate over the filteredFeatures array
+                  filteredFeatures.forEach(function (feature) {
+                    var countryName = feature.properties.name;
+
+                    // Check if the country name exists and add it to the countryNames array
+                    if (countryName) {
+                      countryNames.push(countryName);
+                    }
+                  });
+                  // Log the country names to the console
+                  console.log(countryNames);
+
+                  // Stvaranje novog arraya s državama i smrtnostima od covida
+                  const noviArray = deathsData
+                    .filter((objekt) => countryNames.includes(objekt.Country))
+                    .map((objekt) => ({
+                      country: objekt.Country,
+                      CovidDeaths: objekt["Total Deaths"],
+                    }));
+
+                  console.log(noviArray);
+                },
+              }).addTo(map);
+            });
+          });
         });
       });
+
+      function getColor(deaths) {
+        var colors = [
+          "#ff7f7f",
+          "#ff4c4c",
+          "#ff1f1f",
+          "#ff0000",
+          "#d40000",
+          "#a10000",
+          "#6e0000",
+        ];
+        if (deaths >= 1000000) {
+          return colors[6];
+        } else if (deaths >= 300000) {
+          return colors[5];
+        } else if (deaths >= 200000) {
+          return colors[4];
+        } else if (deaths >= 100000) {
+          return colors[3];
+        } else if (deaths >= 10000) {
+          return colors[2];
+        } else if (deaths >= 1000) {
+          return colors[1];
+        } else {
+          return colors[0];
+        }
+      }
     </script>
   </body>
 </html>

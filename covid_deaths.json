@@ -2308,5 +2308,48 @@
     "Active Cases": 5,
     "Total Test": "",
     "Population": "1,378"
+  },
+  {
+    "Serial Number": 232,
+    "Country": "United Kingdom",
+    "Total Cases": "15,093,183",
+    "Total Deaths": "225,668",
+    "Total Recovered": "",
+    "Active Cases": "",
+    "Total Test": "",
+    "Population": "55,980,000"
+  },
+  {
+    "Serial Number": 233,
+    "Country": "Liechtenstein",
+    "ID": "Liechtenstein",
+    "Total Cases": "21,465",
+    "Total Deaths": "87,206",
+    "Total Recovered": "",
+    "Active Cases": "",
+    "Total Test": "",
+    "Population": "1,873,000"
+  },
+  {
+    "Serial Number": 234,
+    "ID": "Kosovo",
+    "Country": "Kosovo",
+    "Total Cases": "273,872",
+    "Total Deaths": "3,206",
+    "Total Recovered": "",
+    "Active Cases": "",
+    "Total Test": "",
+    "Population": "1,873,000"
+  },
+  {
+    "Serial Number": 234,
+    "ID": "Iceland",
+    "Country": "Iceland",
+    "Total Cases": "209,191",
+    "Total Deaths": "229",
+    "Total Recovered": "",
+    "Active Cases": "",
+    "Total Test": "",
+    "Population": "1,873,000"
   }
 ]

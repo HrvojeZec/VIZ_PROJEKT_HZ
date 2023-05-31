@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- RADIIIII -->
 <html>
   <head>
     <title>Leaflet GeoJSON Example</title>
@@ -31,12 +32,31 @@
         height: 10px;
         margin-right: 5px;
       }
+      .bar {
+        fill: steelblue;
+      }
+      .axis-x text {
+        transform: rotate(-45deg);
+        text-anchor: end;
+        font-size: 10px;
+      }
+      .axis-y text {
+        font-size: 10px;
+      }
+
+      .container {
+        margin-left: 50%;
+      }
     </style>
   </head>
-
   <body>
     <div id="map" style="width: 600px; height: 400px"></div>
-    <div id="chart" style="width: 300px; height: 400px"></div>
+    <div class="container">
+      <div id="chart2" style="width: 500px; height: 500px"></div>
+    </div>
+    <div class="container-chart">
+      <div id="chart" style="width: 300px; height: 400px"></div>
+    </div>
 
     <div class="legend">
       <div class="legend-item">
@@ -64,6 +84,7 @@
 
     <script src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
     <script src="http://cdn.leafletjs.com/leaflet-0.7.1/leaflet.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
@@ -78,7 +99,6 @@
 
       var map = L.map("map").setView([54.526, 15.2551], 4); // Declare map variable here
 
-      //Load deaths data from JSON file
       $.getJSON("covid_deaths.json", function (deathsData) {
         $.getJSON(myGeoJSONPath, function (data) {
           L.geoJson(data, {
@@ -116,18 +136,104 @@
                 });
 
                 if (countryData && countryData["Total Deaths"]) {
-                  var deaths = parseInt(
+                  var covidDeaths = parseInt(
                     countryData["Total Deaths"].replace(/,/g, ""),
                     10
                   );
-                  console.log(deaths);
+                  var AVGcovidDeaths = parseInt(countryData["Avg Deaths"]);
+
+                  var fluDeaths = parseFloat(countryData["Mortality Flu"]);
+
+                  var data = [
+                    { label: "COVID-19", deaths: AVGcovidDeaths },
+                    { label: "Flu", deaths: fluDeaths },
+                  ];
+                  console.log(data);
+
+                  d3.select("#chart2").select("svg").remove();
+
+                  var margin = { top: 20, right: 20, bottom: 30, left: 40 },
+                    width = 460 - margin.left - margin.right,
+                    height = 400 - margin.top - margin.bottom;
+
+                  var svg = d3
+                    .select("#chart2")
+                    .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr(
+                      "transform",
+                      "translate(" + margin.left + "," + margin.top + ")"
+                    );
+
+                  var x = d3.scaleBand().range([0, width]).padding(0.1);
+                  var y = d3.scaleLinear().range([height, 0]);
+
+                  x.domain(
+                    data.map(function (d) {
+                      return d.label;
+                    })
+                  );
+                  y.domain([
+                    0,
+                    d3.max(data, function (d) {
+                      return d.deaths;
+                    }),
+                  ]);
+
+                  svg
+                    .append("g")
+                    .attr("class", "axis axis-x")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(x));
+
+                  svg
+                    .append("g")
+                    .attr("class", "axis axis-y")
+                    .call(d3.axisLeft(y).ticks(10));
+
+                  svg
+                    .selectAll(".bar")
+                    .data(data)
+                    .enter()
+                    .append("rect")
+                    .attr("class", "bar")
+                    .attr("x", function (d) {
+                      return x(d.label);
+                    })
+                    .attr("width", x.bandwidth())
+                    .attr("y", function (d) {
+                      return y(d.deaths);
+                    })
+                    .attr("height", function (d) {
+                      return height - y(d.deaths);
+                    });
+
+                  svg
+                    .selectAll(".bar-label")
+                    .data(data)
+                    .enter()
+                    .append("text")
+                    .attr("class", "bar-label")
+                    .attr("x", function (d) {
+                      return x(d.label) + x.bandwidth() / 2;
+                    })
+                    .attr("y", function (d) {
+                      return y(d.deaths) + 15;
+                    })
+                    .attr("text-anchor", "middle")
+                    .text(function (d) {
+                      return d.deaths.toLocaleString();
+                    });
+
                   L.popup()
                     .setLatLng(e.latlng)
                     .setContent(
                       feature.properties.name +
                         "<br>" +
-                        "Deaths: " +
-                        deaths.toLocaleString()
+                        "COVID-19 Deaths: " +
+                        covidDeaths.toLocaleString()
                     )
                     .openOn(map);
                 }
@@ -194,6 +300,7 @@
                 map.removeLayer(highlightedLayer);
               }
               // Apply a new style to the filtered features to highlight them on the map
+
               highlightedLayer = L.geoJson(filteredFeatures, {
                 style: function () {
                   return {
@@ -207,8 +314,8 @@
                 },
                 onEachFeature: function (feature, layer) {
                   var countryName = feature.properties.name;
+                  var noviArray = [];
                   var countryNames = [];
-
                   // Iterate over the filteredFeatures array
                   filteredFeatures.forEach(function (feature) {
                     var countryName = feature.properties.name;
@@ -221,15 +328,145 @@
                   // Log the country names to the console
                   console.log(countryNames);
 
-                  // Stvaranje novog arraya s državama i smrtnostima od covida
-                  const noviArray = deathsData
-                    .filter((objekt) => countryNames.includes(objekt.Country))
-                    .map((objekt) => ({
-                      country: objekt.Country,
-                      CovidDeaths: objekt["Total Deaths"],
-                    }));
+                  // Stvaranje novog arraya s državama i smrtnošću od Covida
+                  filteredFeatures.forEach(function (feature) {
+                    var countryData = deathsData.find(function (country) {
+                      return country.Country === feature.properties.name;
+                    });
+                    if (
+                      countryData &&
+                      typeof countryData["Total Deaths"] === "string"
+                    ) {
+                      var deaths = parseInt(
+                        countryData["Total Deaths"].replace(/,/g, ""),
+                        10
+                      );
+                      noviArray.push({
+                        country: feature.properties.name,
+                        CovidDeaths: deaths.toLocaleString(),
+                      });
+                    }
+                  });
+                  d3.select("#chart").select("svg").remove();
+                  // Kod za stvaranje grafikona
+                  // Kod za stvaranje grafikona
+                  var margin = { top: 20, bottom: 70, left: 70, right: 20 };
+                  var width = 700;
+                  var height = 700;
+                  var barPadding = 4;
+                  var barWidth = width / data.length - barPadding;
 
-                  console.log(noviArray);
+                  var chartContainer = d3
+                    .select("#chart")
+                    .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .style("background-color", "lightblue")
+                    .append("g")
+                    .attr(
+                      "transform",
+                      "translate(" + margin.left + "," + margin.top + ")"
+                    );
+
+                  var xScale = d3
+                    .scaleBand()
+                    .domain(
+                      noviArray.map(function (d) {
+                        return d.country;
+                      })
+                    )
+                    .range([0, width])
+                    .paddingInner(0.1);
+
+                  var yScale = d3
+                    .scaleLinear()
+                    .domain([
+                      0,
+                      d3.max(noviArray, function (d) {
+                        return +d.CovidDeaths.replace(/,/g, "");
+                      }),
+                    ])
+                    .range([height, 0]);
+
+                  var bars = chartContainer
+                    .selectAll(".bar")
+                    .data(noviArray)
+                    .enter()
+                    .append("rect")
+                    .attr("class", "bar")
+                    .attr("x", function (d) {
+                      return xScale(d.country);
+                    })
+                    .attr("y", function (d) {
+                      return yScale(+d.CovidDeaths.replace(/,/g, ""));
+                    })
+                    .attr("width", xScale.bandwidth())
+                    .attr("height", function (d) {
+                      return height - yScale(+d.CovidDeaths.replace(/,/g, ""));
+                    })
+                    .style("fill", "steelblue");
+
+                  chartContainer
+                    .append("g")
+                    .attr("class", "axis-x")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(xScale))
+                    .selectAll("text")
+                    .attr("dy", "0.35em")
+                    .attr("dx", "-1em")
+                    .style("text-anchor", "end")
+                    .attr("transform", "rotate(-45)")
+                    .style("font-size", "10px");
+
+                  chartContainer
+                    .append("g")
+                    .attr("class", "axis-y")
+                    .call(d3.axisLeft(yScale))
+                    .selectAll("text")
+                    .attr("dx", "-0.35em")
+                    .style("font-size", "10px");
+
+                  // Add country names below each bar in the chart
+                  chartContainer
+                    .selectAll(".bar-label")
+                    .data(noviArray)
+                    .enter()
+                    .append("text")
+                    .attr("class", "bar-label")
+                    .attr("x", function (d) {
+                      return xScale(d.country) + xScale.bandwidth() / 2;
+                    })
+                    .attr("y", function (d) {
+                      return yScale(+d.CovidDeaths.replace(/,/g, "")) + 15;
+                    })
+                    .text(function (d) {
+                      return d.CovidDeaths;
+                    })
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "10px");
+
+                  // Label for the X-axis
+                  chartContainer
+                    .append("text")
+                    .attr("class", "axis-label")
+                    .attr("x", width / 2)
+                    .attr("y", height + margin.bottom / 2)
+                    .attr("dy", "1em")
+                    .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+                    .text("Countries");
+
+                  // Label for the Y-axis
+                  chartContainer
+                    .append("text")
+                    .attr("class", "axis-label")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", 0 - height / 2)
+                    .attr("y", 0 - margin.left)
+                    .attr("dy", "1em")
+                    .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+                    .text("Number of Deaths");
                 },
               }).addTo(map);
             });
@@ -237,30 +474,22 @@
         });
       });
 
+      // Function to determine color based on death count
       function getColor(deaths) {
-        var colors = [
-          "#ff7f7f",
-          "#ff4c4c",
-          "#ff1f1f",
-          "#ff0000",
-          "#d40000",
-          "#a10000",
-          "#6e0000",
-        ];
         if (deaths >= 1000000) {
-          return colors[6];
+          return "#6e0000";
         } else if (deaths >= 300000) {
-          return colors[5];
+          return "#a10000";
         } else if (deaths >= 200000) {
-          return colors[4];
+          return "#d40000";
         } else if (deaths >= 100000) {
-          return colors[3];
+          return "#ff0000";
         } else if (deaths >= 10000) {
-          return colors[2];
+          return "#ff1f1f";
         } else if (deaths >= 1000) {
-          return colors[1];
+          return "#ff4c4c";
         } else {
-          return colors[0];
+          return "#ff7f7f";
         }
       }
     </script>

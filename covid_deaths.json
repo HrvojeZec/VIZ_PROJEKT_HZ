@@ -604,6 +604,8 @@
     "Country": "Croatia",
     "Total Cases": "1,267,580",
     "Total Deaths": "17,877",
+    "Avg Deaths": "438.14",
+    "Mortality Flu": "26,66",
     "Total Recovered": "1,249,168",
     "Active Cases": 535,
     "Total Test": "5,476,183",
